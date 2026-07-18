@@ -1,26 +1,158 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+/* ===========================================================================
+   "Test Kitchen" design system — editorial, paper ground, ink-blue accent.
+   Semantic tokens are defined per-theme below and exposed to Tailwind via
+   @theme inline so utilities like `bg-surface` / `text-ink` work.
+   =========================================================================== */
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+:root {
+  /* light (default) */
+  --bg: #eceae3;
+  --surface: #fbfaf6;
+  --surface-2: #f2efe8;
+  --ink: #211f1b;
+  --muted: #726e64;
+  --line: #e2ded3;
+  --line-strong: #211f1b;
+  --accent: #1f4b6e;
+  --accent-fg: #ffffff;
+  --accent-soft: #e7edf2;
+  --hot: #8a2f2a;
+  --hot-fg: #ffffff;
+  --shadow: 0 1px 2px rgba(20, 18, 14, 0.05), 0 12px 30px rgba(20, 18, 14, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #1a1917;
+    --surface: #232120;
+    --surface-2: #2b2926;
+    --ink: #ece8df;
+    --muted: #a49e90;
+    --line: #35322c;
+    --line-strong: #ece8df;
+    --accent: #86adcf;
+    --accent-fg: #10161c;
+    --accent-soft: #26333e;
+    --hot: #db7d72;
+    --hot-fg: #1c100e;
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.45);
   }
 }
 
+/* Explicit user toggle wins over the media query in both directions. */
+:root[data-theme="light"] {
+  --bg: #eceae3;
+  --surface: #fbfaf6;
+  --surface-2: #f2efe8;
+  --ink: #211f1b;
+  --muted: #726e64;
+  --line: #e2ded3;
+  --line-strong: #211f1b;
+  --accent: #1f4b6e;
+  --accent-fg: #ffffff;
+  --accent-soft: #e7edf2;
+  --hot: #8a2f2a;
+  --hot-fg: #ffffff;
+  --shadow: 0 1px 2px rgba(20, 18, 14, 0.05), 0 12px 30px rgba(20, 18, 14, 0.08);
+}
+:root[data-theme="dark"] {
+  --bg: #1a1917;
+  --surface: #232120;
+  --surface-2: #2b2926;
+  --ink: #ece8df;
+  --muted: #a49e90;
+  --line: #35322c;
+  --line-strong: #ece8df;
+  --accent: #86adcf;
+  --accent-fg: #10161c;
+  --accent-soft: #26333e;
+  --hot: #db7d72;
+  --hot-fg: #1c100e;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 14px 34px rgba(0, 0, 0, 0.45);
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-accent: var(--accent);
+  --color-accent-fg: var(--accent-fg);
+  --color-accent-soft: var(--accent-soft);
+  --color-hot: var(--hot);
+  --color-hot-fg: var(--hot-fg);
+
+  --font-serif: Georgia, "Iowan Old Style", "Palatino Linotype", "Times New Roman", serif;
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+html {
+  color-scheme: light dark;
+}
+
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Editorial headings */
+.font-title {
+  font-family: var(--font-serif);
+  letter-spacing: -0.015em;
+  text-wrap: balance;
+}
+
+/* Uppercase section labels */
+.label-caps {
+  font-size: 0.6875rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Visible keyboard focus everywhere */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.auth-input,
+.field-input {
+  width: 100%;
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  font-size: 0.95rem;
+}
+.auth-input:focus,
+.field-input:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    transition-duration: 0.001ms !important;
+  }
 }

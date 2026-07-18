@@ -1,0 +1,144 @@
+// Prisma schema for the shared Recipe Book app.
+// Dev: SQLite (file). Deploy: switch provider to "postgresql" + DATABASE_URL.
+// learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+/// A user account. Auth uses email + password (bcrypt hash) with JWT sessions,
+/// so no Auth.js adapter tables are needed.
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String?
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  memberships   Membership[]
+  addedRecipes  Recipe[]       @relation("AddedBy")
+  customWeights CustomWeight[]
+  shareLinks    ShareLink[]    @relation("ShareLinkCreator")
+}
+
+/// A recipe book / collection. Sharing happens at the book level.
+/// Ownership is expressed via a Membership with role = "owner".
+model Book {
+  id        String   @id @default(cuid())
+  name      String
+  createdAt DateTime @default(now())
+
+  memberships Membership[]
+  recipes     Recipe[]
+  shareLinks  ShareLink[]
+}
+
+/// Links a User to a Book with a role. Role is a string (not a DB enum) so it
+/// stays portable across SQLite/Postgres and a "viewer" role can be added later
+/// with no migration. Allowed values: "owner" | "member" (future: "viewer").
+model Membership {
+  id        String   @id @default(cuid())
+  role      String   @default("member")
+  createdAt DateTime @default(now())
+
+  userId String
+  bookId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  book   Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, bookId])
+  @@index([bookId])
+}
+
+/// A revocable link that grants membership (with a role) to whoever opens it
+/// while logged in.
+model ShareLink {
+  id        String    @id @default(cuid())
+  token     String    @unique
+  role      String    @default("member")
+  revoked   Boolean   @default(false)
+  expiresAt DateTime?
+  createdAt DateTime  @default(now())
+
+  bookId      String
+  book        Book    @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdById String?
+  createdBy   User?   @relation("ShareLinkCreator", fields: [createdById], references: [id], onDelete: SetNull)
+
+  @@index([bookId])
+}
+
+/// A recipe belongs to a Book (not directly to a user). addedBy records who
+/// added it, for attribution in a shared book.
+model Recipe {
+  id           String   @id @default(cuid())
+  title        String
+  sourceUrl    String?
+  imageUrl     String?
+  description  String?
+  servings     Float? // parsed numeric base yield, used for scaling
+  servingsText String? // raw yield text, e.g. "Makes 2 dozen cookies"
+  prepTime     String?
+  cookTime     String?
+  totalTime    String?
+  instructions Json // string[] of ordered steps
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  bookId String
+  book   Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  addedById String?
+  addedBy   User?   @relation("AddedBy", fields: [addedById], references: [id], onDelete: SetNull)
+
+  ingredients Ingredient[]
+
+  @@index([bookId])
+}
+
+/// A single parsed ingredient line. Raw text is always kept; the structured
+/// fields are best-effort and may be null when parsing fails.
+model Ingredient {
+  id          String  @id @default(cuid())
+  order       Int
+  raw         String // original ingredient text
+  quantity    Float? // parsed amount (lower bound of a range)
+  quantityMax Float? // upper bound for ranges like "1-2 cups"
+  unit        String? // normalized unit, e.g. "cup", "tablespoon", "gram"
+  name        String? // ingredient name portion, e.g. "all-purpose flour"
+  note        String? // trailing note, e.g. "chopped", "room temperature"
+
+  recipeId String
+  recipe   Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+
+  @@index([recipeId])
+}
+
+/// Global ingredient weight reference, seeded from the King Arthur chart.
+model WeightChart {
+  id          String @id @default(cuid())
+  name        String @unique
+  volumeRaw   String
+  grams       Float
+  ounces      Float?
+  gramsPerCup Float? // grams per 1 US cup, when derivable
+}
+
+/// A user's personal weight override/addition for ingredients not on (or
+/// differing from) the King Arthur chart. Follows the user across all books.
+model CustomWeight {
+  id          String   @id @default(cuid())
+  name        String
+  gramsPerCup Float
+  createdAt   DateTime @default(now())
+
+  userId String
+  user   User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, name])
+}
