@@ -15,12 +15,16 @@ export const authConfig = {
   session: { strategy: "jwt" },
   providers: [], // real providers are added in auth.ts
   callbacks: {
-    // Gate every route except the auth pages. Unauthenticated users are
-    // redirected to /login by NextAuth.
+    // Gate pages for signed-out users, redirecting them to /login. Auth pages
+    // are public, and API routes are always allowed through — they enforce
+    // their own auth (e.g. /api/signup must be reachable when logged out).
     authorized({ auth, request: { nextUrl } }) {
       const isLoggedIn = !!auth?.user;
-      const publicPaths = ["/login", "/signup"];
-      const isPublic = publicPaths.some((p) => nextUrl.pathname.startsWith(p));
+      const path = nextUrl.pathname;
+      const isPublic =
+        path.startsWith("/login") ||
+        path.startsWith("/signup") ||
+        path.startsWith("/api");
       if (isPublic) return true;
       return isLoggedIn;
     },
