@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { formatQuantity } from "@/lib/quantity";
 import { unitLabel, unitKind, type CanonicalUnit } from "@/lib/units";
 import { computeGrams, computeCups, roundGrams } from "@/lib/convert";
+import { resolveSpecialMeasure } from "@/lib/special-measures";
 import { deleteRecipe, addCustomWeight } from "@/lib/actions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -43,20 +44,52 @@ type Recipe = {
   ingredients: Ingredient[];
 };
 
-type UnitMode = "original" | "grams" | "volume";
+type UnitMode = "grams" | "volume";
 
 const PRESETS = [0.5, 1, 1.5, 2, 3];
 const UNIT_MODES: { value: UnitMode; label: string }[] = [
-  { value: "original", label: "As written" },
   { value: "grams", label: "Grams" },
   { value: "volume", label: "Volume" },
 ];
 
+/** Effective measure for an ingredient, applying special-case units. */
+function effectiveMeasure(ing: Ingredient) {
+  const gpc = ing.conversion.gramsPerCup;
+  if (ing.quantity == null) {
+    return { quantity: null, quantityMax: null, unit: ing.unit, gpc };
+  }
+  const special = resolveSpecialMeasure(ing.raw ?? ing.name ?? "", ing.quantity, ing.unit);
+  if (!special) {
+    return { quantity: ing.quantity, quantityMax: ing.quantityMax, unit: ing.unit, gpc };
+  }
+  const mult = special.quantity / ing.quantity;
+  return {
+    quantity: special.quantity,
+    quantityMax: ing.quantityMax != null ? ing.quantityMax * mult : null,
+    unit: special.unit,
+    gpc: special.gramsPerCupOverride ?? gpc,
+  };
+}
+
+/** Guess whether a recipe is written in weight or volume, for the default mode. */
+function detectMode(ingredients: Ingredient[]): UnitMode {
+  let volume = 0;
+  let weight = 0;
+  for (const ing of ingredients) {
+    const { unit } = effectiveMeasure(ing);
+    if (!unit) continue;
+    if (unitKind(unit) === "weight") weight++;
+    else if (unitKind(unit) === "volume") volume++;
+  }
+  return weight > volume ? "grams" : "volume";
+}
+
 export function RecipeView({ recipe }: { recipe: Recipe }) {
   const router = useRouter();
+  const nativeMode = useMemo(() => detectMode(recipe.ingredients), [recipe.ingredients]);
   const [factor, setFactor] = useState(1);
   const [scaleText, setScaleText] = useState("1");
-  const [unitMode, setUnitMode] = useState<UnitMode>("original");
+  const [unitMode, setUnitMode] = useState<UnitMode>(nativeMode);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -76,14 +109,12 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
     recipe.servings != null ? Math.round(recipe.servings * factor) : null;
 
   const scaleNote =
-    factor !== 1 || unitMode !== "original"
-      ? [
-          factor !== 1 ? `Scaled ${formatQuantity(factor)}×` : null,
-          unitMode === "grams" ? "in grams" : unitMode === "volume" ? "in volume" : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")
-      : null;
+    [
+      factor !== 1 ? `Scaled ${formatQuantity(factor)}×` : null,
+      unitMode !== nativeMode ? (unitMode === "grams" ? "in grams" : "in volume") : null,
+    ]
+      .filter(Boolean)
+      .join(" · ") || null;
 
   async function onDelete() {
     setDeletePending(true);
@@ -288,11 +319,11 @@ function IngredientRow({
     [ing, factor, unitMode],
   );
 
-  const kind = ing.unit ? unitKind(ing.unit) : null;
-  const missingWeight = ing.conversion.gramsPerCup == null;
+  const eff = effectiveMeasure(ing);
+  const kind = eff.unit ? unitKind(eff.unit) : null;
   const showSetWeight =
-    ing.quantity != null &&
-    missingWeight &&
+    eff.quantity != null &&
+    eff.gpc == null &&
     ((unitMode === "grams" && kind === "volume") ||
       (unitMode === "volume" && kind === "weight"));
 
@@ -332,16 +363,18 @@ function renderAmount(
   factor: number,
   unitMode: UnitMode,
 ): { amount: string | null } {
-  if (ing.quantity == null) return { amount: null };
-  const scaled = ing.quantity * factor;
-  const scaledMax = ing.quantityMax != null ? ing.quantityMax * factor : null;
-  const gpc = ing.conversion.gramsPerCup;
-  const kind = ing.unit ? unitKind(ing.unit) : null;
+  const eff = effectiveMeasure(ing);
+  if (eff.quantity == null) return { amount: null };
+
+  const scaled = eff.quantity * factor;
+  const scaledMax = eff.quantityMax != null ? eff.quantityMax * factor : null;
+  const { unit, gpc } = eff;
+  const kind = unit ? unitKind(unit) : null;
 
   if (unitMode === "grams") {
-    const g = computeGrams(scaled, ing.unit, gpc);
+    const g = computeGrams(scaled, unit, gpc);
     if (g != null) {
-      const gMax = scaledMax != null ? computeGrams(scaledMax, ing.unit, gpc) : null;
+      const gMax = scaledMax != null ? computeGrams(scaledMax, unit, gpc) : null;
       return {
         amount:
           gMax != null ? `${roundGrams(g)}–${roundGrams(gMax)} g` : `${roundGrams(g)} g`,
@@ -351,9 +384,9 @@ function renderAmount(
   } else if (unitMode === "volume" && kind === "weight") {
     // Only weight ingredients are converted to volume; existing volumes stay in
     // their (more readable) written units.
-    const c = computeCups(scaled, ing.unit, gpc);
+    const c = computeCups(scaled, unit, gpc);
     if (c != null) {
-      const cMax = scaledMax != null ? computeCups(scaledMax, ing.unit, gpc) : null;
+      const cMax = scaledMax != null ? computeCups(scaledMax, unit, gpc) : null;
       const label = unitLabel("cup", c);
       return {
         amount:
@@ -367,7 +400,7 @@ function renderAmount(
 
   const amtStr =
     formatQuantity(scaled) + (scaledMax != null ? `–${formatQuantity(scaledMax)}` : "");
-  const lbl = ing.unit ? " " + unitLabel(ing.unit, scaled) : "";
+  const lbl = unit ? " " + unitLabel(unit, scaled) : "";
   return { amount: amtStr + lbl };
 }
 
