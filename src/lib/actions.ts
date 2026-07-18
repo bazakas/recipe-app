@@ -117,6 +117,83 @@ export async function addRecipeFromUrl(
   return { ok: true, recipeId: recipe.id };
 }
 
+const manualRecipeSchema = z.object({
+  title: z.string().trim().min(1, "Give the recipe a title.").max(200),
+  servings: z.string().trim().optional(),
+  prepTime: z.string().trim().max(60).optional(),
+  cookTime: z.string().trim().max(60).optional(),
+  totalTime: z.string().trim().max(60).optional(),
+  imageUrl: z.string().trim().max(2000).optional(),
+  ingredients: z.string().max(20000), // one per line
+  instructions: z.string().max(50000), // one step per line
+});
+
+export type ManualRecipeInput = z.input<typeof manualRecipeSchema>;
+
+export async function addManualRecipe(
+  bookId: string,
+  input: ManualRecipeInput,
+): Promise<ActionResult<{ recipeId: string }>> {
+  const userId = await requireUserId();
+  if (!canEdit(await getBookRole(userId, bookId)))
+    return fail("You don't have permission to add recipes to this book.");
+
+  const parsed = manualRecipeSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Please check the form.");
+  }
+  const data = parsed.data;
+
+  const ingredientLines = data.ingredients
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const instructionLines = data.instructions
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+
+  if (ingredientLines.length === 0) return fail("Add at least one ingredient.");
+
+  // Only accept a valid http(s) image URL; ignore anything else.
+  const imageUrl =
+    data.imageUrl && /^https?:\/\//i.test(data.imageUrl) ? data.imageUrl : null;
+  const servingsNum = data.servings ? Number(data.servings.match(/\d+(\.\d+)?/)?.[0]) : NaN;
+
+  const recipe = await prisma.recipe.create({
+    data: {
+      bookId,
+      addedById: userId,
+      title: data.title,
+      sourceUrl: null,
+      imageUrl,
+      servings: Number.isFinite(servingsNum) ? servingsNum : null,
+      servingsText: data.servings || null,
+      prepTime: data.prepTime || null,
+      cookTime: data.cookTime || null,
+      totalTime: data.totalTime || null,
+      instructions: instructionLines,
+      ingredients: {
+        create: ingredientLines.map((raw, i) => {
+          const p = parseIngredient(raw);
+          return {
+            order: i,
+            raw: p.raw,
+            quantity: p.quantity,
+            quantityMax: p.quantityMax,
+            unit: p.unit,
+            name: p.name,
+            note: p.note,
+          };
+        }),
+      },
+    },
+  });
+
+  revalidatePath(`/books/${bookId}`);
+  return { ok: true, recipeId: recipe.id };
+}
+
 export async function deleteRecipe(recipeId: string): Promise<ActionResult<{ bookId: string }>> {
   const userId = await requireUserId();
   const recipe = await prisma.recipe.findUnique({

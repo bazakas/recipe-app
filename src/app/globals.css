@@ -156,3 +156,36 @@ body {
     transition-duration: 0.001ms !important;
   }
 }
+
+/* Print: a clean, portrait, ink-friendly recipe. Chrome is hidden via
+   .no-print; colors are forced light regardless of the on-screen theme. */
+@media print {
+  @page {
+    size: portrait;
+    margin: 0.6in;
+  }
+  .no-print {
+    display: none !important;
+  }
+  :root,
+  :root[data-theme="light"],
+  :root[data-theme="dark"] {
+    --bg: #ffffff;
+    --surface: #ffffff;
+    --surface-2: #ffffff;
+    --ink: #111111;
+    --muted: #444444;
+    --line: #cccccc;
+    --line-strong: #111111;
+    --accent: #1f4b6e;
+    --accent-fg: #ffffff;
+    --accent-soft: #eef2f6;
+    --hot: #7a2e2a;
+    --hot-fg: #ffffff;
+    --shadow: none;
+  }
+  html,
+  body {
+    background: #ffffff !important;
+  }
+}

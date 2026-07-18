@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { formatQuantity } from "@/lib/quantity";
 import { unitLabel, unitKind, type CanonicalUnit } from "@/lib/units";
-import { computeGrams, roundGrams } from "@/lib/convert";
+import { computeGrams, computeCups, roundGrams } from "@/lib/convert";
 import { deleteRecipe, addCustomWeight } from "@/lib/actions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 
@@ -43,19 +43,47 @@ type Recipe = {
   ingredients: Ingredient[];
 };
 
+type UnitMode = "original" | "grams" | "volume";
+
 const PRESETS = [0.5, 1, 1.5, 2, 3];
+const UNIT_MODES: { value: UnitMode; label: string }[] = [
+  { value: "original", label: "As written" },
+  { value: "grams", label: "Grams" },
+  { value: "volume", label: "Volume" },
+];
 
 export function RecipeView({ recipe }: { recipe: Recipe }) {
   const router = useRouter();
   const [factor, setFactor] = useState(1);
-  const [grams, setGrams] = useState(false);
+  const [scaleText, setScaleText] = useState("1");
+  const [unitMode, setUnitMode] = useState<UnitMode>("original");
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const canEdit = recipe.role !== "viewer";
 
+  function applyPreset(p: number) {
+    setFactor(p);
+    setScaleText(formatQuantity(p));
+  }
+  function onScaleTextChange(text: string) {
+    setScaleText(text);
+    const v = parseFloat(text);
+    if (Number.isFinite(v) && v > 0) setFactor(v);
+  }
+
   const scaledServings =
-    recipe.servings != null ? Math.round(recipe.servings * factor * 100) / 100 : null;
+    recipe.servings != null ? Math.round(recipe.servings * factor) : null;
+
+  const scaleNote =
+    factor !== 1 || unitMode !== "original"
+      ? [
+          factor !== 1 ? `Scaled ${formatQuantity(factor)}×` : null,
+          unitMode === "grams" ? "in grams" : unitMode === "volume" ? "in volume" : null,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : null;
 
   async function onDelete() {
     setDeletePending(true);
@@ -72,7 +100,7 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
 
   return (
     <main className="mx-auto w-full max-w-3xl flex-1 px-4 py-8">
-      <div className="mb-4 flex items-center justify-between text-sm">
+      <div className="mb-4 flex items-center justify-between text-sm no-print">
         <Link href={`/books/${recipe.book.id}`} className="text-muted hover:text-ink">
           ← {recipe.book.name}
         </Link>
@@ -107,16 +135,22 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
         <img
           src={recipe.imageUrl}
           alt={recipe.title}
-          className="mb-5 aspect-[16/9] w-full rounded-2xl border border-line object-cover"
+          className="mb-5 aspect-[16/9] w-full rounded-2xl border border-line object-cover no-print"
         />
       )}
 
       <h1 className="font-title text-4xl leading-tight">{recipe.title}</h1>
+      {scaleNote && (
+        <p className="mt-1 hidden text-sm text-muted print:block">{scaleNote}</p>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 border-b-2 border-line-strong pb-4 text-sm text-muted">
         {recipe.prepTime && <span><b className="text-ink">Prep</b> {recipe.prepTime}</span>}
         {recipe.cookTime && <span><b className="text-ink">Cook</b> {recipe.cookTime}</span>}
         {recipe.totalTime && <span><b className="text-ink">Total</b> {recipe.totalTime}</span>}
-        {recipe.servingsText && !recipe.servings && (
+        {scaledServings != null && (
+          <span><b className="text-ink">Serves</b> ~{scaledServings}</span>
+        )}
+        {recipe.servingsText && recipe.servings == null && (
           <span><b className="text-ink">Makes</b> {recipe.servingsText}</span>
         )}
         {recipe.sourceUrl && (
@@ -124,7 +158,7 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
             href={recipe.sourceUrl}
             target="_blank"
             rel="noopener noreferrer"
-            className="ml-auto text-accent hover:underline"
+            className="ml-auto text-accent hover:underline no-print"
           >
             Source ↗
           </a>
@@ -132,81 +166,79 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
       </div>
 
       {/* Controls */}
-      <div className="mt-5 flex flex-wrap items-center gap-3">
-        <div className="inline-flex overflow-hidden rounded-lg border border-line">
-          {PRESETS.map((p) => (
-            <button
-              key={p}
-              onClick={() => setFactor(p)}
-              aria-pressed={Math.abs(factor - p) < 0.001}
-              className={`tnum border-r border-line px-3 py-1.5 text-sm font-medium last:border-r-0 ${
-                Math.abs(factor - p) < 0.001
-                  ? "bg-accent text-accent-fg"
-                  : "bg-surface hover:bg-surface-2"
-              }`}
-            >
-              {p === 1 ? "1×" : `${formatQuantity(p)}×`}
-            </button>
-          ))}
+      <div className="mt-5 flex flex-col gap-3 no-print">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="label-caps w-12">Scale</span>
+          <div className="inline-flex overflow-hidden rounded-lg border border-line">
+            {PRESETS.map((p) => (
+              <button
+                key={p}
+                onClick={() => applyPreset(p)}
+                aria-pressed={Math.abs(factor - p) < 0.001}
+                className={`tnum border-r border-line px-3 py-1.5 text-sm font-medium last:border-r-0 ${
+                  Math.abs(factor - p) < 0.001
+                    ? "bg-accent text-accent-fg"
+                    : "bg-surface hover:bg-surface-2"
+                }`}
+              >
+                {p === 1 ? "1×" : `${formatQuantity(p)}×`}
+              </button>
+            ))}
+          </div>
+          <label className="inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1 text-sm">
+            <span className="text-muted">Custom ×</span>
+            <input
+              type="number"
+              step="0.25"
+              min="0.1"
+              value={scaleText}
+              onChange={(e) => onScaleTextChange(e.target.value)}
+              aria-label="Custom scale factor"
+              className="w-16 bg-transparent tnum outline-none"
+            />
+          </label>
+          {scaledServings != null && (
+            <span className="text-sm text-muted">Serves ~{scaledServings}</span>
+          )}
         </div>
 
-        {scaledServings != null && (
-          <div className="inline-flex items-center gap-2 rounded-lg border border-line px-2 py-1 text-sm">
-            <button
-              onClick={() =>
-                setFactor((f) =>
-                  Math.max(1 / recipe.servings!, f - 1 / recipe.servings!),
-                )
-              }
-              className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-surface-2"
-              aria-label="Fewer servings"
-            >
-              −
-            </button>
-            <span className="tnum min-w-[5.5rem] text-center">
-              Serves {formatQuantity(scaledServings)}
-            </span>
-            <button
-              onClick={() => setFactor((f) => f + 1 / recipe.servings!)}
-              className="grid h-6 w-6 place-items-center rounded text-muted hover:bg-surface-2"
-              aria-label="More servings"
-            >
-              +
-            </button>
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="label-caps w-12">Units</span>
+          <div className="inline-flex overflow-hidden rounded-lg border border-line">
+            {UNIT_MODES.map((m) => (
+              <button
+                key={m.value}
+                onClick={() => setUnitMode(m.value)}
+                aria-pressed={unitMode === m.value}
+                className={`border-r border-line px-3 py-1.5 text-sm font-medium last:border-r-0 ${
+                  unitMode === m.value
+                    ? "bg-accent text-accent-fg"
+                    : "bg-surface hover:bg-surface-2"
+                }`}
+              >
+                {m.label}
+              </button>
+            ))}
           </div>
-        )}
-
-        <button
-          onClick={() => setGrams((g) => !g)}
-          aria-pressed={grams}
-          className={`ml-auto inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-sm font-medium ${
-            grams
-              ? "border-hot bg-hot text-hot-fg"
-              : "border-line bg-surface text-muted hover:text-ink"
-          }`}
-        >
-          <span>Grams</span>
-          <span
-            className={`relative h-4 w-7 rounded-full transition-colors ${
-              grams ? "bg-hot-fg/40" : "bg-line"
-            }`}
+          <button
+            onClick={() => window.print()}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium hover:bg-surface-2"
           >
-            <span
-              className={`absolute top-0.5 h-3 w-3 rounded-full bg-surface transition-all ${
-                grams ? "left-3.5" : "left-0.5"
-              }`}
-            />
-          </span>
-        </button>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M6 9V2h12v7M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2M6 14h12v8H6z" />
+            </svg>
+            Print
+          </button>
+        </div>
       </div>
 
-      <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,18rem)_1fr]">
+      <div className="mt-8 grid gap-8 md:grid-cols-[minmax(0,18rem)_1fr] print:block">
         {/* Ingredients */}
-        <section>
+        <section className="print:mb-6" style={{ breakInside: "avoid" }}>
           <h2 className="label-caps mb-3">Ingredients</h2>
           <ul className="flex flex-col">
             {recipe.ingredients.map((ing) => (
-              <IngredientRow key={ing.id} ing={ing} factor={factor} grams={grams} />
+              <IngredientRow key={ing.id} ing={ing} factor={factor} unitMode={unitMode} />
             ))}
           </ul>
         </section>
@@ -218,7 +250,7 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
             <p className="text-sm text-muted">
               No steps were found for this recipe.{" "}
               {recipe.sourceUrl && (
-                <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">
+                <a href={recipe.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline no-print">
                   View the original ↗
                 </a>
               )}
@@ -226,7 +258,7 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
           ) : (
             <ol className="flex flex-col gap-4">
               {recipe.instructions.map((step, i) => (
-                <li key={i} className="flex gap-3">
+                <li key={i} className="flex gap-3" style={{ breakInside: "avoid" }}>
                   <span className="font-title text-lg font-semibold text-hot tnum">{i + 1}.</span>
                   <p className="font-serif text-[15px] leading-relaxed">{step}</p>
                 </li>
@@ -242,20 +274,27 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
 function IngredientRow({
   ing,
   factor,
-  grams,
+  unitMode,
 }: {
   ing: Ingredient;
   factor: number;
-  grams: boolean;
+  unitMode: UnitMode;
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
 
-  const display = useMemo(() => renderAmount(ing, factor, grams), [ing, factor, grams]);
+  const display = useMemo(
+    () => renderAmount(ing, factor, unitMode),
+    [ing, factor, unitMode],
+  );
 
-  const isVolume = ing.unit != null && unitKind(ing.unit) === "volume";
+  const kind = ing.unit ? unitKind(ing.unit) : null;
+  const missingWeight = ing.conversion.gramsPerCup == null;
   const showSetWeight =
-    grams && ing.quantity != null && isVolume && ing.conversion.gramsPerCup == null;
+    ing.quantity != null &&
+    missingWeight &&
+    ((unitMode === "grams" && kind === "volume") ||
+      (unitMode === "volume" && kind === "weight"));
 
   return (
     <li className="grid grid-cols-[7rem_1fr] items-baseline gap-3 border-b border-line py-2.5 last:border-b-0">
@@ -278,7 +317,7 @@ function IngredientRow({
           ) : (
             <button
               onClick={() => setAdding(true)}
-              className="ml-2 text-xs text-accent hover:underline"
+              className="ml-2 text-xs text-accent hover:underline no-print"
             >
               + set weight
             </button>
@@ -291,24 +330,39 @@ function IngredientRow({
 function renderAmount(
   ing: Ingredient,
   factor: number,
-  grams: boolean,
+  unitMode: UnitMode,
 ): { amount: string | null } {
   if (ing.quantity == null) return { amount: null };
   const scaled = ing.quantity * factor;
   const scaledMax = ing.quantityMax != null ? ing.quantityMax * factor : null;
+  const gpc = ing.conversion.gramsPerCup;
+  const kind = ing.unit ? unitKind(ing.unit) : null;
 
-  if (grams) {
-    const g = computeGrams(scaled, ing.unit, ing.conversion.gramsPerCup);
+  if (unitMode === "grams") {
+    const g = computeGrams(scaled, ing.unit, gpc);
     if (g != null) {
-      const gMax =
-        scaledMax != null
-          ? computeGrams(scaledMax, ing.unit, ing.conversion.gramsPerCup)
-          : null;
+      const gMax = scaledMax != null ? computeGrams(scaledMax, ing.unit, gpc) : null;
       return {
-        amount: gMax != null ? `${roundGrams(g)}–${roundGrams(gMax)} g` : `${roundGrams(g)} g`,
+        amount:
+          gMax != null ? `${roundGrams(g)}–${roundGrams(gMax)} g` : `${roundGrams(g)} g`,
       };
     }
-    // no conversion available — fall through to original amount
+    // not convertible — fall through to as-written
+  } else if (unitMode === "volume" && kind === "weight") {
+    // Only weight ingredients are converted to volume; existing volumes stay in
+    // their (more readable) written units.
+    const c = computeCups(scaled, ing.unit, gpc);
+    if (c != null) {
+      const cMax = scaledMax != null ? computeCups(scaledMax, ing.unit, gpc) : null;
+      const label = unitLabel("cup", c);
+      return {
+        amount:
+          cMax != null
+            ? `${formatQuantity(c)}–${formatQuantity(cMax)} ${label}`
+            : `${formatQuantity(c)} ${label}`,
+      };
+    }
+    // not convertible — fall through to as-written
   }
 
   const amtStr =
@@ -342,7 +396,7 @@ function SetWeightForm({
   }
 
   return (
-    <form onSubmit={submit} className="mt-1.5 flex flex-wrap items-center gap-1.5">
+    <form onSubmit={submit} className="mt-1.5 flex flex-wrap items-center gap-1.5 no-print">
       <input
         type="number"
         step="any"

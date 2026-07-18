@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { addRecipeFromUrl } from "@/lib/actions";
 
@@ -77,6 +78,16 @@ export function AddRecipeDialog({
             </button>
           </div>
         </form>
+        <p className="mt-4 border-t border-line pt-3 text-sm text-muted">
+          No link?{" "}
+          <Link
+            href={`/books/${bookId}/new`}
+            onClick={onClose}
+            className="font-medium text-accent hover:underline"
+          >
+            Enter a recipe manually
+          </Link>
+        </p>
       </div>
     </div>
   );

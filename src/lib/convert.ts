@@ -153,3 +153,27 @@ export function computeGrams(
 export function roundGrams(grams: number): number {
   return grams < 10 ? Math.round(grams * 10) / 10 : Math.round(grams);
 }
+
+/**
+ * Convert an ingredient amount to US cups.
+ * - volume units convert directly (tbsp, tsp -> cups)
+ * - weight units need a grams-per-cup value (grams / gramsPerCup)
+ * Returns null when conversion isn't possible.
+ */
+export function computeCups(
+  quantity: number | null,
+  unit: CanonicalUnit | null,
+  gramsPerCup: number | null,
+): number | null {
+  if (quantity == null || unit == null) return null;
+
+  if (unitKind(unit) === "volume") {
+    return toCups(quantity, unit);
+  }
+  if (unitKind(unit) === "weight") {
+    const grams = toGrams(quantity, unit);
+    if (grams == null || gramsPerCup == null || gramsPerCup === 0) return null;
+    return grams / gramsPerCup;
+  }
+  return null;
+}

@@ -3,6 +3,7 @@ import {
   normalizeName,
   buildWeightMatcher,
   computeGrams,
+  computeCups,
   roundGrams,
   type WeightSource,
 } from "@/lib/convert";
@@ -55,6 +56,23 @@ describe("computeGrams", () => {
     expect(computeGrams(null, "cup", 120)).toBeNull();
     expect(computeGrams(1, null, 120)).toBeNull();
     expect(computeGrams(1, "cup", null)).toBeNull();
+  });
+});
+
+describe("computeCups", () => {
+  it("converts weight to cups via grams-per-cup", () => {
+    // 226 g butter at 226 g/cup = 1 cup
+    expect(computeCups(226, "gram", 226)).toBeCloseTo(1, 6);
+    // 8 oz cream cheese at 227 g/cup ~= 1 cup
+    expect(computeCups(8, "ounce", 227)).toBeCloseTo(1, 1);
+  });
+  it("converts volume units directly to cups", () => {
+    expect(computeCups(16, "tablespoon", null)).toBeCloseTo(1, 6);
+    expect(computeCups(2, "cup", null)).toBe(2);
+  });
+  it("returns null when a weight can't be converted without grams-per-cup", () => {
+    expect(computeCups(100, "gram", null)).toBeNull();
+    expect(computeCups(1, null, 120)).toBeNull();
   });
 });
 
