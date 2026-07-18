@@ -2,24 +2,46 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { addManualRecipe } from "@/lib/actions";
+import { addManualRecipe, updateRecipe } from "@/lib/actions";
 
-export function ManualRecipeForm({ bookId }: { bookId: string }) {
+export type RecipeFormValues = {
+  title: string;
+  servings: string;
+  prepTime: string;
+  cookTime: string;
+  totalTime: string;
+  imageUrl: string;
+  ingredients: string;
+  instructions: string;
+};
+
+const EMPTY: RecipeFormValues = {
+  title: "",
+  servings: "",
+  prepTime: "",
+  cookTime: "",
+  totalTime: "",
+  imageUrl: "",
+  ingredients: "",
+  instructions: "",
+};
+
+export function ManualRecipeForm({
+  bookId,
+  recipeId,
+  initial,
+}: {
+  bookId: string;
+  recipeId?: string; // present → edit mode
+  initial?: RecipeFormValues;
+}) {
   const router = useRouter();
-  const [form, setForm] = useState({
-    title: "",
-    servings: "",
-    prepTime: "",
-    cookTime: "",
-    totalTime: "",
-    imageUrl: "",
-    ingredients: "",
-    instructions: "",
-  });
+  const isEdit = Boolean(recipeId);
+  const [form, setForm] = useState<RecipeFormValues>(initial ?? EMPTY);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function set<K extends keyof typeof form>(key: K, value: string) {
+  function set<K extends keyof RecipeFormValues>(key: K, value: string) {
     setForm((f) => ({ ...f, [key]: value }));
   }
 
@@ -27,7 +49,9 @@ export function ManualRecipeForm({ bookId }: { bookId: string }) {
     e.preventDefault();
     setPending(true);
     setError(null);
-    const res = await addManualRecipe(bookId, form);
+    const res = isEdit
+      ? await updateRecipe(recipeId!, form)
+      : await addManualRecipe(bookId, form);
     setPending(false);
     if (res.ok) {
       router.push(`/recipes/${res.recipeId}`);
@@ -93,13 +117,16 @@ export function ManualRecipeForm({ bookId }: { bookId: string }) {
         />
       </Field>
 
-      <Field label="Ingredients" hint="One per line — e.g. “1 1/2 cups flour”">
+      <Field
+        label="Ingredients"
+        hint="One per line. Shorthand works: t = teaspoon, T = tablespoon."
+      >
         <textarea
           required
           value={form.ingredients}
           onChange={(e) => set("ingredients", e.target.value)}
           rows={8}
-          placeholder={"1 1/2 cups all-purpose flour\n1 cup sugar\n1/2 cup butter, melted\n3 large eggs"}
+          placeholder={"1 1/2 cups all-purpose flour\n1 t vanilla\n2 T butter, melted\n3 large eggs"}
           className="field-input font-mono text-sm leading-relaxed"
         />
       </Field>
@@ -122,11 +149,11 @@ export function ManualRecipeForm({ bookId }: { bookId: string }) {
           disabled={pending}
           className="rounded-lg bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg disabled:opacity-60"
         >
-          {pending ? "Saving…" : "Save recipe"}
+          {pending ? "Saving…" : isEdit ? "Save changes" : "Save recipe"}
         </button>
         <button
           type="button"
-          onClick={() => router.push(`/books/${bookId}`)}
+          onClick={() => router.push(isEdit ? `/recipes/${recipeId}` : `/books/${bookId}`)}
           className="rounded-lg border border-line px-5 py-2.5 text-sm font-medium text-muted hover:text-ink"
         >
           Cancel

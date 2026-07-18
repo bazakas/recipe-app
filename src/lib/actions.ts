@@ -194,6 +194,74 @@ export async function addManualRecipe(
   return { ok: true, recipeId: recipe.id };
 }
 
+export async function updateRecipe(
+  recipeId: string,
+  input: ManualRecipeInput,
+): Promise<ActionResult<{ recipeId: string }>> {
+  const userId = await requireUserId();
+  const existing = await prisma.recipe.findUnique({
+    where: { id: recipeId },
+    select: { bookId: true },
+  });
+  if (!existing) return fail("Recipe not found.");
+  if (!canEdit(await getBookRole(userId, existing.bookId)))
+    return fail("You don't have permission to edit this recipe.");
+
+  const parsed = manualRecipeSchema.safeParse(input);
+  if (!parsed.success) {
+    return fail(parsed.error.issues[0]?.message ?? "Please check the form.");
+  }
+  const data = parsed.data;
+
+  const ingredientLines = data.ingredients
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  const instructionLines = data.instructions
+    .split(/\r?\n/)
+    .map((l) => l.trim())
+    .filter(Boolean);
+  if (ingredientLines.length === 0) return fail("Add at least one ingredient.");
+
+  const imageUrl =
+    data.imageUrl && /^https?:\/\//i.test(data.imageUrl) ? data.imageUrl : null;
+  const servingsNum = data.servings ? Number(data.servings.match(/\d+(\.\d+)?/)?.[0]) : NaN;
+
+  await prisma.recipe.update({
+    where: { id: recipeId },
+    data: {
+      title: data.title,
+      imageUrl,
+      servings: Number.isFinite(servingsNum) ? servingsNum : null,
+      servingsText: data.servings || null,
+      prepTime: data.prepTime || null,
+      cookTime: data.cookTime || null,
+      totalTime: data.totalTime || null,
+      instructions: instructionLines,
+      modified: true, // flag so imported recipes show "modified from" the source
+      ingredients: {
+        deleteMany: {},
+        create: ingredientLines.map((raw, i) => {
+          const p = parseIngredient(raw);
+          return {
+            order: i,
+            raw: p.raw,
+            quantity: p.quantity,
+            quantityMax: p.quantityMax,
+            unit: p.unit,
+            name: p.name,
+            note: p.note,
+          };
+        }),
+      },
+    },
+  });
+
+  revalidatePath(`/recipes/${recipeId}`);
+  revalidatePath(`/books/${existing.bookId}`);
+  return { ok: true, recipeId };
+}
+
 export async function deleteRecipe(recipeId: string): Promise<ActionResult<{ bookId: string }>> {
   const userId = await requireUserId();
   const recipe = await prisma.recipe.findUnique({

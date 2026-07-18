@@ -32,6 +32,7 @@ type Recipe = {
   description: string | null;
   imageUrl: string | null;
   sourceUrl: string | null;
+  modified: boolean;
   servings: number | null;
   servingsText: string | null;
   prepTime: string | null;
@@ -136,15 +137,20 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
           ← {recipe.book.name}
         </Link>
         {canEdit && (
-          <button
-            onClick={() => {
-              setDeleteError(null);
-              setConfirmOpen(true);
-            }}
-            className="text-hot hover:underline"
-          >
-            Delete
-          </button>
+          <div className="flex items-center gap-4">
+            <Link href={`/recipes/${recipe.id}/edit`} className="text-accent hover:underline">
+              Edit
+            </Link>
+            <button
+              onClick={() => {
+                setDeleteError(null);
+                setConfirmOpen(true);
+              }}
+              className="text-hot hover:underline"
+            >
+              Delete
+            </button>
+          </div>
         )}
       </div>
 
@@ -185,14 +191,17 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
           <span><b className="text-ink">Makes</b> {recipe.servingsText}</span>
         )}
         {recipe.sourceUrl && (
-          <a
-            href={recipe.sourceUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="ml-auto text-accent hover:underline no-print"
-          >
-            Source ↗
-          </a>
+          <span className="ml-auto">
+            {recipe.modified && <span className="italic text-muted">*modified from </span>}
+            <a
+              href={recipe.sourceUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-accent hover:underline"
+            >
+              {recipe.modified ? "original ↗" : "Source ↗"}
+            </a>
+          </span>
         )}
       </div>
 

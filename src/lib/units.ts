@@ -35,12 +35,14 @@ const UNIT_SYNONYMS: Record<string, CanonicalUnit> = {
   tbsps: "tablespoon",
   tbs: "tablespoon",
   tb: "tablespoon",
-  "t.": "tablespoon",
   // teaspoon
   teaspoon: "teaspoon",
   teaspoons: "teaspoon",
   tsp: "teaspoon",
   tsps: "teaspoon",
+  // Single-letter "t" is a token so the parser recognizes it; case (t vs T) is
+  // resolved in normalizeUnit — lowercase t = teaspoon, uppercase T = tablespoon.
+  t: "teaspoon",
   // fluid ounce
   "fluid ounce": "fluid-ounce",
   "fluid ounces": "fluid-ounce",
@@ -117,8 +119,11 @@ export const UNIT_TOKENS: string[] = Object.keys(UNIT_SYNONYMS).sort(
 );
 
 export function normalizeUnit(raw: string): CanonicalUnit | null {
-  const key = raw.trim().toLowerCase().replace(/\.$/, "");
-  return UNIT_SYNONYMS[key] ?? UNIT_SYNONYMS[key.replace(/\.$/, "")] ?? null;
+  const trimmed = raw.trim().replace(/\.$/, "");
+  // Case-sensitive cooking shorthand: t = teaspoon, T = tablespoon.
+  if (trimmed === "t") return "teaspoon";
+  if (trimmed === "T") return "tablespoon";
+  return UNIT_SYNONYMS[trimmed.toLowerCase()] ?? null;
 }
 
 export function unitKind(unit: CanonicalUnit): UnitKind {

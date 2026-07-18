@@ -59,6 +59,25 @@ describe("parseIngredient", () => {
     });
   });
 
+  it("accepts single-letter t/T shorthand case-sensitively", () => {
+    expect(parseIngredient("1 t vanilla")).toMatchObject({
+      quantity: 1,
+      unit: "teaspoon",
+      name: "vanilla",
+    });
+    expect(parseIngredient("2 T olive oil")).toMatchObject({
+      quantity: 2,
+      unit: "tablespoon",
+      name: "olive oil",
+    });
+    // Words starting with t must not be mistaken for the unit.
+    expect(parseIngredient("2 tomatoes, diced")).toMatchObject({
+      quantity: 2,
+      unit: null,
+      name: "tomatoes",
+    });
+  });
+
   it("handles weight units", () => {
     expect(parseIngredient("3 lbs boneless chicken thighs")).toMatchObject({
       quantity: 3,

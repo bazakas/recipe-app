@@ -103,6 +103,7 @@ export async function getRecipeForUser(recipeId: string) {
     description: recipe.description,
     imageUrl: recipe.imageUrl,
     sourceUrl: recipe.sourceUrl,
+    modified: recipe.modified,
     servings: recipe.servings,
     servingsText: recipe.servingsText,
     prepTime: recipe.prepTime,

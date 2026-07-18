@@ -19,6 +19,12 @@ describe("normalizeUnit", () => {
   it("ignores a trailing period", () => {
     expect(normalizeUnit("tbsp.")).toBe("tablespoon");
   });
+  it("treats single-letter t/T case-sensitively", () => {
+    expect(normalizeUnit("t")).toBe("teaspoon");
+    expect(normalizeUnit("T")).toBe("tablespoon");
+    expect(normalizeUnit("t.")).toBe("teaspoon");
+    expect(normalizeUnit("T.")).toBe("tablespoon");
+  });
   it("returns null for unknown units", () => {
     expect(normalizeUnit("clove")).toBeNull();
     expect(normalizeUnit("")).toBeNull();
