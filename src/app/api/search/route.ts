@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { currentUserId } from "@/lib/authz";
-import { searchRecipes, SearchNotConfiguredError } from "@/lib/brave-search";
+import { searchRecipes, SearchNotConfiguredError } from "@/lib/recipe-search";
 
 // Recipe web search (Brave). Auth-only; used by the Add Recipe dialog.
 export async function GET(req: Request) {
