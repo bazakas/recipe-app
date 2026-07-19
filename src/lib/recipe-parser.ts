@@ -53,7 +53,18 @@ export async function scrapeRecipe(url: string): Promise<ScrapedRecipe> {
     );
   }
 
-  return extractRecipeFromHtml(html, url);
+  try {
+    return extractRecipeFromHtml(html, url);
+  } catch (err) {
+    // No structured data — fall back to AI extraction from the page text
+    // (only runs when ANTHROPIC_API_KEY is configured).
+    if (err instanceof RecipeParseError && err.code === "no_structured_data") {
+      const { extractRecipeWithAI } = await import("@/lib/ai-extract");
+      const aiResult = await extractRecipeWithAI(html, url);
+      if (aiResult) return aiResult;
+    }
+    throw err;
+  }
 }
 
 /**
