@@ -46,28 +46,59 @@ const BROWSER_HEADERS: Record<string, string> = {
   "Upgrade-Insecure-Requests": "1",
 };
 
+// Statuses that signal bot/IP blocking (Akamai, Cloudflare, etc.) rather than a
+// genuinely missing page. When we see these we retry through the reading proxy.
+const BLOCKED_STATUSES = new Set([401, 403, 429, 503]);
+
+/**
+ * Fetch page HTML, falling back to a reading proxy when the origin blocks us.
+ * Many sites (e.g. Food Network via Akamai) block datacenter IP ranges — which
+ * is what Vercel serverless functions run on — regardless of request headers,
+ * so a direct fetch that succeeds locally can still 403 in production. r.jina.ai
+ * fetches the page from its own infrastructure and returns the rendered HTML
+ * (with JSON-LD intact), which our normal parser then handles.
+ */
+async function fetchHtml(url: string): Promise<string> {
+  let directStatus: number | null = null;
+  try {
+    const res = await fetch(url, { headers: BROWSER_HEADERS, redirect: "follow" });
+    if (res.ok) return await res.text();
+    directStatus = res.status;
+  } catch {
+    // Network error — fall through to the proxy.
+  }
+
+  // Retry through the reading proxy when the origin blocked us or was unreachable.
+  if (directStatus === null || BLOCKED_STATUSES.has(directStatus)) {
+    try {
+      const res = await fetch(`https://r.jina.ai/${url}`, {
+        headers: {
+          "X-Return-Format": "html",
+          Accept: "text/html",
+          // Optional key raises rate limits; the proxy works without one.
+          ...(process.env.JINA_API_KEY
+            ? { Authorization: `Bearer ${process.env.JINA_API_KEY}` }
+            : {}),
+        },
+        redirect: "follow",
+      });
+      if (res.ok) return await res.text();
+    } catch {
+      // Fall through to the error below.
+    }
+  }
+
+  throw new RecipeParseError(
+    directStatus
+      ? `The site returned HTTP ${directStatus}.`
+      : "Couldn't reach that URL. Check the link and try again.",
+    "fetch_failed",
+  );
+}
+
 /** Fetch a URL and extract the first schema.org/Recipe into a normalized shape. */
 export async function scrapeRecipe(url: string): Promise<ScrapedRecipe> {
-  let html: string;
-  try {
-    const res = await fetch(url, {
-      headers: BROWSER_HEADERS,
-      redirect: "follow",
-    });
-    if (!res.ok) {
-      throw new RecipeParseError(
-        `The site returned HTTP ${res.status}.`,
-        "fetch_failed",
-      );
-    }
-    html = await res.text();
-  } catch (err) {
-    if (err instanceof RecipeParseError) throw err;
-    throw new RecipeParseError(
-      "Couldn't reach that URL. Check the link and try again.",
-      "fetch_failed",
-    );
-  }
+  const html = await fetchHtml(url);
 
   try {
     return extractRecipeFromHtml(html, url);
