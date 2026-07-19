@@ -153,3 +153,18 @@ export async function getCustomWeights() {
     orderBy: { name: "asc" },
   });
 }
+
+export async function getAccountProfile() {
+  const userId = await requireUserId();
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true, image: true, passwordHash: true },
+  });
+  if (!user) return null;
+  return {
+    name: user.name ?? "",
+    email: user.email,
+    image: user.image ?? "",
+    hasPassword: Boolean(user.passwordHash),
+  };
+}

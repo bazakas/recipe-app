@@ -1,6 +1,7 @@
 "use server";
 
 import { randomBytes } from "node:crypto";
+import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
@@ -452,5 +453,52 @@ export async function deleteCustomWeight(id: string): Promise<ActionResult> {
   if (!cw || cw.userId !== userId) return fail("Not found.");
   await prisma.customWeight.delete({ where: { id } });
   revalidatePath("/settings/weights");
+  return { ok: true };
+}
+
+// ---- Account ------------------------------------------------------------
+
+export async function updateProfile(
+  name: string,
+  image: string,
+): Promise<ActionResult<{ name: string | null; image: string | null }>> {
+  const userId = await requireUserId();
+  const cleanName = name.trim().slice(0, 80) || null;
+  // Only accept a valid http(s) image URL; ignore anything else.
+  const imageUrl = image.trim() && /^https?:\/\//i.test(image.trim()) ? image.trim() : null;
+
+  await prisma.user.update({
+    where: { id: userId },
+    data: { name: cleanName, image: imageUrl },
+  });
+  revalidatePath("/");
+  return { ok: true, name: cleanName, image: imageUrl };
+}
+
+export async function changePassword(
+  currentPassword: string,
+  newPassword: string,
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { passwordHash: true },
+  });
+  if (!user) return fail("Account not found.");
+
+  // Users created via Google have an empty passwordHash — they can set one
+  // without providing a current password.
+  const hasPassword = Boolean(user.passwordHash);
+  if (hasPassword) {
+    if (!currentPassword) return fail("Enter your current password.");
+    const ok = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!ok) return fail("Your current password is incorrect.");
+  }
+  if (newPassword.length < 8) {
+    return fail("New password must be at least 8 characters.");
+  }
+
+  const passwordHash = await bcrypt.hash(newPassword, 10);
+  await prisma.user.update({ where: { id: userId }, data: { passwordHash } });
   return { ok: true };
 }

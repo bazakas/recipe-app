@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { AddRecipeDialog } from "@/components/AddRecipeDialog";
 import { ShareDialog } from "@/components/ShareDialog";
@@ -28,6 +28,8 @@ export function AppHeader({
   userLabel: string;
 }) {
   const router = useRouter();
+  const { data: session } = useSession();
+  const avatarImage = session?.user?.image ?? null;
   const [switcherOpen, setSwitcherOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
@@ -151,10 +153,15 @@ export function AppHeader({
           <div className="relative">
             <button
               onClick={() => setMenuOpen((v) => !v)}
-              className="grid h-9 w-9 place-items-center rounded-full border border-line bg-surface-2 text-sm font-semibold uppercase"
+              className="grid h-9 w-9 place-items-center overflow-hidden rounded-full border border-line bg-surface-2 text-sm font-semibold uppercase"
               aria-label="Account menu"
             >
-              {userLabel.charAt(0)}
+              {avatarImage ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={avatarImage} alt="" className="h-full w-full object-cover" />
+              ) : (
+                userLabel.charAt(0)
+              )}
             </button>
             {menuOpen && (
               <>
@@ -167,6 +174,13 @@ export function AppHeader({
                     className="block rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2"
                   >
                     All recipe books
+                  </Link>
+                  <Link
+                    href="/settings/account"
+                    onClick={() => setMenuOpen(false)}
+                    className="block rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2"
+                  >
+                    Account settings
                   </Link>
                   <Link
                     href="/settings/weights"

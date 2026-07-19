@@ -71,18 +71,29 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
       }
       return true;
     },
-    async jwt({ token, user, account }) {
-      // Credentials returns our DB id directly.
-      if (account?.provider === "credentials" && user?.id) {
-        token.id = user.id;
+    async jwt({ token, user, account, trigger, session }) {
+      // On fresh sign-in (or any token missing our id), resolve our DB user and
+      // hydrate the profile (id/name/picture) onto the token.
+      const freshSignIn = Boolean(user) || (!token.id && Boolean(token.email));
+      if (freshSignIn) {
+        const email = (user?.email ?? token.email)?.toLowerCase();
+        if (email) {
+          const dbUser = await prisma.user.findUnique({
+            where: { email },
+            select: { id: true, name: true, image: true },
+          });
+          if (dbUser) {
+            token.id = dbUser.id;
+            token.name = dbUser.name;
+            token.picture = dbUser.image ?? null;
+          }
+        }
       }
-      // For Google (or any token missing our id), resolve it by email.
-      if (!token.id && token.email) {
-        const dbUser = await prisma.user.findUnique({
-          where: { email: token.email.toLowerCase() },
-          select: { id: true },
-        });
-        if (dbUser) token.id = dbUser.id;
+      // Client-side session.update({ name, image }) after a profile change.
+      if (trigger === "update" && session) {
+        const s = session as { name?: string | null; image?: string | null };
+        if ("name" in s) token.name = s.name ?? null;
+        if ("image" in s) token.picture = s.image ?? null;
       }
       return token;
     },
