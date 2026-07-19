@@ -87,6 +87,7 @@ model Recipe {
   cookTime     String?
   totalTime    String?
   instructions Json // string[] of ordered steps
+  notes        String? // free-form notes shown at the bottom of the recipe
   modified     Boolean  @default(false) // edited after import (shows "modified from" on the source)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt

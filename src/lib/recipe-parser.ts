@@ -27,15 +27,31 @@ export class RecipeParseError extends Error {
   }
 }
 
-const USER_AGENT =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120 Safari/537.36";
+// A full, browser-like header set. Some sites (e.g. Food Network) return 403 to
+// requests missing the Sec-Fetch-*/Sec-Ch-Ua/Accept-Language headers a real
+// browser sends.
+const BROWSER_HEADERS: Record<string, string> = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  Accept:
+    "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+  "Sec-Ch-Ua": '"Chromium";v="131", "Not_A Brand";v="24"',
+  "Sec-Ch-Ua-Mobile": "?0",
+  "Sec-Ch-Ua-Platform": '"macOS"',
+  "Sec-Fetch-Dest": "document",
+  "Sec-Fetch-Mode": "navigate",
+  "Sec-Fetch-Site": "none",
+  "Sec-Fetch-User": "?1",
+  "Upgrade-Insecure-Requests": "1",
+};
 
 /** Fetch a URL and extract the first schema.org/Recipe into a normalized shape. */
 export async function scrapeRecipe(url: string): Promise<ScrapedRecipe> {
   let html: string;
   try {
     const res = await fetch(url, {
-      headers: { "User-Agent": USER_AGENT, Accept: "text/html" },
+      headers: BROWSER_HEADERS,
       redirect: "follow",
     });
     if (!res.ok) {

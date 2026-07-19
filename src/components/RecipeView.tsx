@@ -39,6 +39,7 @@ type Recipe = {
   cookTime: string | null;
   totalTime: string | null;
   instructions: string[];
+  notes: string | null;
   addedBy: { name: string | null; email: string } | null;
   book: { id: string; name: string };
   role: string;
@@ -307,6 +308,15 @@ export function RecipeView({ recipe }: { recipe: Recipe }) {
           )}
         </section>
       </div>
+
+      {recipe.notes && (
+        <section className="mt-8 border-t-2 border-line-strong pt-4" style={{ breakInside: "avoid" }}>
+          <h2 className="label-caps mb-3">Notes</h2>
+          <p className="whitespace-pre-wrap font-serif text-[15px] leading-relaxed">
+            {recipe.notes}
+          </p>
+        </section>
+      )}
     </main>
   );
 }

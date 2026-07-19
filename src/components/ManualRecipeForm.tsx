@@ -13,6 +13,7 @@ export type RecipeFormValues = {
   imageUrl: string;
   ingredients: string;
   instructions: string;
+  notes: string;
 };
 
 const EMPTY: RecipeFormValues = {
@@ -24,6 +25,7 @@ const EMPTY: RecipeFormValues = {
   imageUrl: "",
   ingredients: "",
   instructions: "",
+  notes: "",
 };
 
 export function ManualRecipeForm({
@@ -137,6 +139,16 @@ export function ManualRecipeForm({
           onChange={(e) => set("instructions", e.target.value)}
           rows={8}
           placeholder={"Preheat oven to 350°F.\nWhisk the dry ingredients.\nFold in the wet ingredients and bake 45 minutes."}
+          className="field-input text-sm leading-relaxed"
+        />
+      </Field>
+
+      <Field label="Notes (optional)" hint="Shown at the bottom of the recipe">
+        <textarea
+          value={form.notes}
+          onChange={(e) => set("notes", e.target.value)}
+          rows={4}
+          placeholder={"Tips, substitutions, or reminders — e.g. “Use very ripe bananas” or “Freezes well.”"}
           className="field-input text-sm leading-relaxed"
         />
       </Field>

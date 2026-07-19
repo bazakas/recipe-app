@@ -110,6 +110,7 @@ export async function getRecipeForUser(recipeId: string) {
     cookTime: recipe.cookTime,
     totalTime: recipe.totalTime,
     instructions: (recipe.instructions as string[]) ?? [],
+    notes: recipe.notes,
     addedBy: recipe.addedBy,
     book: recipe.book,
     role,

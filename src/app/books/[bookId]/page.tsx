@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { auth } from "@/auth";
 import { getUserBooks, getBookWithRecipes } from "@/lib/data";
 import { AppHeader } from "@/components/AppHeader";
-import { RecipeCard } from "@/components/RecipeCard";
+import { RecipeLibrary } from "@/components/RecipeLibrary";
 import { EmptyLibrary } from "@/components/EmptyLibrary";
 
 export default async function BookPage({
@@ -37,11 +37,12 @@ export default async function BookPage({
         {book.recipes.length === 0 ? (
           <EmptyLibrary bookId={bookId} canEdit={canEdit} />
         ) : (
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {book.recipes.map((r) => (
-              <RecipeCard key={r.id} recipe={r} canEdit={canEdit} />
-            ))}
-          </div>
+          <RecipeLibrary
+            currentBookId={bookId}
+            canEdit={canEdit}
+            books={books.map((b) => ({ id: b.id, name: b.name, role: b.role }))}
+            recipes={book.recipes}
+          />
         )}
       </main>
     </>

@@ -126,6 +126,7 @@ const manualRecipeSchema = z.object({
   imageUrl: z.string().trim().max(2000).optional(),
   ingredients: z.string().max(20000), // one per line
   instructions: z.string().max(50000), // one step per line
+  notes: z.string().trim().max(10000).optional(),
 });
 
 export type ManualRecipeInput = z.input<typeof manualRecipeSchema>;
@@ -173,6 +174,7 @@ export async function addManualRecipe(
       cookTime: data.cookTime || null,
       totalTime: data.totalTime || null,
       instructions: instructionLines,
+      notes: data.notes || null,
       ingredients: {
         create: ingredientLines.map((raw, i) => {
           const p = parseIngredient(raw);
@@ -238,6 +240,7 @@ export async function updateRecipe(
       cookTime: data.cookTime || null,
       totalTime: data.totalTime || null,
       instructions: instructionLines,
+      notes: data.notes || null,
       modified: true, // flag so imported recipes show "modified from" the source
       ingredients: {
         deleteMany: {},
@@ -275,6 +278,57 @@ export async function deleteRecipe(recipeId: string): Promise<ActionResult<{ boo
   await prisma.recipe.delete({ where: { id: recipeId } });
   revalidatePath(`/books/${recipe.bookId}`);
   return { ok: true, bookId: recipe.bookId };
+}
+
+/** Confirm the user can edit every source book for the given recipes. */
+async function loadEditableRecipes(userId: string, recipeIds: string[]) {
+  const recipes = await prisma.recipe.findMany({
+    where: { id: { in: recipeIds } },
+    select: { id: true, bookId: true },
+  });
+  const bookIds = [...new Set(recipes.map((r) => r.bookId))];
+  for (const bookId of bookIds) {
+    if (!canEdit(await getBookRole(userId, bookId))) return null;
+  }
+  return { recipes, bookIds };
+}
+
+export async function moveRecipes(
+  recipeIds: string[],
+  targetBookId: string,
+): Promise<ActionResult<{ count: number }>> {
+  const userId = await requireUserId();
+  if (recipeIds.length === 0) return fail("No recipes selected.");
+  if (!canEdit(await getBookRole(userId, targetBookId)))
+    return fail("You don't have permission to add recipes to that book.");
+
+  const loaded = await loadEditableRecipes(userId, recipeIds);
+  if (!loaded) return fail("You don't have permission to move these recipes.");
+
+  const res = await prisma.recipe.updateMany({
+    where: { id: { in: recipeIds } },
+    data: { bookId: targetBookId },
+  });
+
+  for (const bookId of loaded.bookIds) revalidatePath(`/books/${bookId}`);
+  revalidatePath(`/books/${targetBookId}`);
+  revalidatePath("/");
+  return { ok: true, count: res.count };
+}
+
+export async function deleteRecipes(
+  recipeIds: string[],
+): Promise<ActionResult<{ count: number }>> {
+  const userId = await requireUserId();
+  if (recipeIds.length === 0) return fail("No recipes selected.");
+
+  const loaded = await loadEditableRecipes(userId, recipeIds);
+  if (!loaded) return fail("You don't have permission to delete these recipes.");
+
+  const res = await prisma.recipe.deleteMany({ where: { id: { in: recipeIds } } });
+  for (const bookId of loaded.bookIds) revalidatePath(`/books/${bookId}`);
+  revalidatePath("/");
+  return { ok: true, count: res.count };
 }
 
 // ---- Sharing ------------------------------------------------------------

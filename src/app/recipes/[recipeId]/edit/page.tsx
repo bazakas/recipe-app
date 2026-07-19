@@ -27,6 +27,7 @@ export default async function EditRecipePage({
     imageUrl: recipe.imageUrl ?? "",
     ingredients: recipe.ingredients.map((i) => i.raw).join("\n"),
     instructions: recipe.instructions.join("\n"),
+    notes: recipe.notes ?? "",
   };
 
   return (

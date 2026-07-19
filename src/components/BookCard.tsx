@@ -3,8 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteBook } from "@/lib/actions";
+import { deleteBook, renameBook } from "@/lib/actions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
+import { PromptDialog } from "@/components/PromptDialog";
+import { CardMenu } from "@/components/CardMenu";
 
 export type BookCardData = {
   id: string;
@@ -17,6 +19,7 @@ export type BookCardData = {
 export function BookCard({ book }: { book: BookCardData }) {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [renameOpen, setRenameOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -37,9 +40,22 @@ export function BookCard({ book }: { book: BookCardData }) {
     }
   }
 
+  async function onRename(name: string) {
+    setPending(true);
+    setError(null);
+    const res = await renameBook(book.id, name);
+    setPending(false);
+    if (res.ok) {
+      setRenameOpen(false);
+      router.refresh();
+    } else {
+      setError(res.error);
+    }
+  }
+
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)] transition-transform hover:-translate-y-0.5">
-      {/* Stretched link covers the card without nesting the delete button. */}
+      {/* Stretched link covers the card without nesting the menu button. */}
       <Link href={`/books/${book.id}`} aria-label={book.name} className="absolute inset-0 z-[1]" />
 
       <div className="flex aspect-[3/2] items-center justify-center bg-accent-soft">
@@ -63,19 +79,41 @@ export function BookCard({ book }: { book: BookCardData }) {
       </div>
 
       {isOwner && (
-        <button
-          onClick={() => {
-            setError(null);
-            setConfirmOpen(true);
-          }}
-          aria-label={`Delete ${book.name}`}
-          className="absolute right-2 top-2 z-[2] grid h-8 w-8 place-items-center rounded-full bg-black/45 text-white opacity-0 backdrop-blur transition-opacity hover:bg-black/70 focus-visible:opacity-100 group-hover:opacity-100"
-        >
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-            <path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14" />
-          </svg>
-        </button>
+        <div className="absolute right-2 top-2 z-[2]">
+          <CardMenu
+            label={`Options for ${book.name}`}
+            items={[
+              {
+                label: "Rename",
+                onClick: () => {
+                  setError(null);
+                  setRenameOpen(true);
+                },
+              },
+              {
+                label: "Delete book",
+                danger: true,
+                onClick: () => {
+                  setError(null);
+                  setConfirmOpen(true);
+                },
+              },
+            ]}
+          />
+        </div>
       )}
+
+      <PromptDialog
+        open={renameOpen}
+        title="Rename book"
+        label="Book name"
+        initialValue={book.name}
+        confirmLabel="Save"
+        pending={pending}
+        error={error}
+        onConfirm={onRename}
+        onCancel={() => setRenameOpen(false)}
+      />
 
       <ConfirmDialog
         open={confirmOpen}
