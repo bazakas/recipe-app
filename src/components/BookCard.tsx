@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteBook, renameBook, setBookCover } from "@/lib/actions";
+import { deleteBook, renameBook, setBookCover, leaveBook } from "@/lib/actions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PromptDialog } from "@/components/PromptDialog";
 import { BookCoverDialog } from "@/components/BookCoverDialog";
@@ -24,6 +24,7 @@ export function BookCard({ book }: { book: BookCardData }) {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
   const [coverOpen, setCoverOpen] = useState(false);
+  const [leaveOpen, setLeaveOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,6 +72,19 @@ export function BookCard({ book }: { book: BookCardData }) {
     }
   }
 
+  async function onLeave() {
+    setPending(true);
+    setError(null);
+    const res = await leaveBook(book.id);
+    if (res.ok) {
+      setLeaveOpen(false);
+      router.refresh();
+    } else {
+      setError(res.error);
+      setPending(false);
+    }
+  }
+
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)] transition-transform hover:-translate-y-0.5">
       {/* Stretched link covers the card without nesting the menu button. */}
@@ -101,37 +115,48 @@ export function BookCard({ book }: { book: BookCardData }) {
         </p>
       </div>
 
-      {isOwner && (
-        <div className="absolute right-2 top-2 z-[2]">
-          <CardMenu
-            label={`Options for ${book.name}`}
-            items={[
-              {
-                label: "Rename",
-                onClick: () => {
-                  setError(null);
-                  setRenameOpen(true);
-                },
-              },
-              {
-                label: book.coverImage ? "Change photo" : "Add photo",
-                onClick: () => {
-                  setError(null);
-                  setCoverOpen(true);
-                },
-              },
-              {
-                label: "Delete book",
-                danger: true,
-                onClick: () => {
-                  setError(null);
-                  setConfirmOpen(true);
-                },
-              },
-            ]}
-          />
-        </div>
-      )}
+      <div className="absolute right-2 top-2 z-[2]">
+        <CardMenu
+          label={`Options for ${book.name}`}
+          items={
+            isOwner
+              ? [
+                  {
+                    label: "Rename",
+                    onClick: () => {
+                      setError(null);
+                      setRenameOpen(true);
+                    },
+                  },
+                  {
+                    label: book.coverImage ? "Change photo" : "Add photo",
+                    onClick: () => {
+                      setError(null);
+                      setCoverOpen(true);
+                    },
+                  },
+                  {
+                    label: "Delete book",
+                    danger: true,
+                    onClick: () => {
+                      setError(null);
+                      setConfirmOpen(true);
+                    },
+                  },
+                ]
+              : [
+                  {
+                    label: "Leave book",
+                    danger: true,
+                    onClick: () => {
+                      setError(null);
+                      setLeaveOpen(true);
+                    },
+                  },
+                ]
+          }
+        />
+      </div>
 
       <PromptDialog
         open={renameOpen}
@@ -154,6 +179,20 @@ export function BookCard({ book }: { book: BookCardData }) {
         onConfirm={onSaveCover}
         onCancel={() => setCoverOpen(false)}
       />
+
+      <ConfirmDialog
+        open={leaveOpen}
+        title={`Leave “${book.name}”?`}
+        confirmLabel="Leave book"
+        pendingLabel="Leaving…"
+        pending={pending}
+        error={error}
+        onConfirm={onLeave}
+        onCancel={() => setLeaveOpen(false)}
+      >
+        You&apos;ll lose access to this shared book and its recipes. You can rejoin
+        later with an invite link.
+      </ConfirmDialog>
 
       <ConfirmDialog
         open={confirmOpen}

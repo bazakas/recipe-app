@@ -24,6 +24,9 @@ export const authConfig = {
       const isPublic =
         path.startsWith("/login") ||
         path.startsWith("/signup") ||
+        // Invite pages are public so link-preview crawlers can read the book's
+        // title/photo and invitees can see the invite before signing in.
+        path.startsWith("/join") ||
         path.startsWith("/api");
       if (isPublic) return true;
       return isLoggedIn;

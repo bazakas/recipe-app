@@ -12,6 +12,7 @@ export function ConfirmDialog({
   open,
   title,
   confirmLabel,
+  pendingLabel = "Deleting…",
   onConfirm,
   onCancel,
   pending = false,
@@ -21,6 +22,7 @@ export function ConfirmDialog({
   open: boolean;
   title: string;
   confirmLabel: string;
+  pendingLabel?: string;
   onConfirm: () => void;
   onCancel: () => void;
   pending?: boolean;
@@ -63,7 +65,7 @@ export function ConfirmDialog({
             disabled={pending}
             className="rounded-lg bg-hot px-4 py-2 text-sm font-semibold text-hot-fg disabled:opacity-60"
           >
-            {pending ? "Deleting…" : confirmLabel}
+            {pending ? pendingLabel : confirmLabel}
           </button>
         </div>
       </div>

@@ -448,6 +448,12 @@ export async function leaveOrRemoveMember(
   return { ok: true };
 }
 
+/** Leave a book you're a member of (removes the current user's membership). */
+export async function leaveBook(bookId: string): Promise<ActionResult> {
+  const userId = await requireUserId();
+  return leaveOrRemoveMember(bookId, userId);
+}
+
 // ---- Custom weights -----------------------------------------------------
 
 export async function addCustomWeight(
