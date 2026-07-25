@@ -10,9 +10,10 @@ export type ParsedIngredient = {
   note: string | null;
 };
 
-// A number token: "1 1/2" (mixed), "1/2" (fraction), or "1"/"1.5" (decimal).
-// Ordered so the mixed and fraction forms match before the bare integer.
-const NUMBER = "\\d+\\s+\\d+/\\d+|\\d+/\\d+|\\d+(?:\\.\\d+)?";
+// A number token: "1 1/2" or "1 and 1/2" (mixed), "1/2" (fraction), or
+// "1"/"1.5" (decimal). Ordered so the mixed and fraction forms match before
+// the bare integer. The optional "and"/"&" covers "1 and 1/2 cups".
+const NUMBER = "\\d+\\s+(?:(?:and|&)\\s+)?\\d+/\\d+|\\d+/\\d+|\\d+(?:\\.\\d+)?";
 // Range separators: "-", "–", "to".
 const RANGE = "\\s*(?:-|–|—|to)\\s*";
 

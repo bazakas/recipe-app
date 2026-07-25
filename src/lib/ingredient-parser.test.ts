@@ -42,6 +42,23 @@ describe("parseIngredient", () => {
     });
   });
 
+  it("parses a mixed number written with 'and' plus a gram parenthetical", () => {
+    expect(parseIngredient("1 and 1/2 cups (300g) granulated sugar")).toMatchObject({
+      quantity: 1.5,
+      quantityMax: null,
+      unit: "cup",
+      name: "granulated sugar",
+    });
+  });
+
+  it("parses '2 and 1/4 cups' style amounts", () => {
+    expect(parseIngredient("2 and 1/4 cups whole milk")).toMatchObject({
+      quantity: 2.25,
+      unit: "cup",
+      name: "whole milk",
+    });
+  });
+
   it("splits a trailing note on the first comma", () => {
     expect(parseIngredient("1 large egg, beaten")).toMatchObject({
       quantity: 1,

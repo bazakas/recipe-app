@@ -29,6 +29,10 @@ describe("parseNumericAmount", () => {
   it("parses mixed numbers", () => {
     expect(parseNumericAmount("1 1/2")).toBe(1.5);
   });
+  it("parses mixed numbers written with 'and'", () => {
+    expect(parseNumericAmount("1 and 1/2")).toBe(1.5);
+    expect(parseNumericAmount("2 and 1/4")).toBe(2.25);
+  });
   it("returns null for non-numeric input", () => {
     expect(parseNumericAmount("")).toBeNull();
     expect(parseNumericAmount("salt")).toBeNull();

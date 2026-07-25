@@ -56,11 +56,11 @@ export function normalizeFractionGlyphs(input: string): string {
   return out;
 }
 
-/** Parse "1", "1/2", "1 1/2", "1.5" into a number, or null. */
+/** Parse "1", "1/2", "1 1/2", "1 and 1/2", "1.5" into a number, or null. */
 export function parseNumericAmount(raw: string): number | null {
   const s = raw.trim();
   if (!s) return null;
-  const mixed = s.match(/^(\d+)\s+(\d+)\/(\d+)$/);
+  const mixed = s.match(/^(\d+)\s+(?:(?:and|&)\s+)?(\d+)\/(\d+)$/);
   if (mixed) return Number(mixed[1]) + Number(mixed[2]) / Number(mixed[3]);
   const frac = s.match(/^(\d+)\/(\d+)$/);
   if (frac) return Number(frac[1]) / Number(frac[2]);
