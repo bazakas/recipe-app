@@ -16,7 +16,7 @@ export function AuthShell({
       </div>
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <p className="label-caps mb-2 text-accent">Recipe Book</p>
+          <p className="label-caps mb-2 text-accent">Recipe Box</p>
           <h1 className="font-title text-3xl">{title}</h1>
           <p className="mt-2 text-sm text-muted">{subtitle}</p>
         </div>

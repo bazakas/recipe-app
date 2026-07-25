@@ -3,9 +3,10 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { deleteBook, renameBook } from "@/lib/actions";
+import { deleteBook, renameBook, setBookCover } from "@/lib/actions";
 import { ConfirmDialog } from "@/components/ConfirmDialog";
 import { PromptDialog } from "@/components/PromptDialog";
+import { BookCoverDialog } from "@/components/BookCoverDialog";
 import { CardMenu } from "@/components/CardMenu";
 
 export type BookCardData = {
@@ -14,18 +15,22 @@ export type BookCardData = {
   role: string;
   recipeCount: number;
   memberCount: number;
+  coverImage?: string | null;
+  fallbackImage?: string | null;
 };
 
 export function BookCard({ book }: { book: BookCardData }) {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [renameOpen, setRenameOpen] = useState(false);
+  const [coverOpen, setCoverOpen] = useState(false);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const isOwner = book.role === "owner";
   const recipeLabel = `${book.recipeCount} ${book.recipeCount === 1 ? "recipe" : "recipes"}`;
   const shared = book.memberCount > 1;
+  const cover = book.coverImage || book.fallbackImage || null;
 
   async function onDelete() {
     setPending(true);
@@ -53,15 +58,33 @@ export function BookCard({ book }: { book: BookCardData }) {
     }
   }
 
+  async function onSaveCover(url: string) {
+    setPending(true);
+    setError(null);
+    const res = await setBookCover(book.id, url);
+    setPending(false);
+    if (res.ok) {
+      setCoverOpen(false);
+      router.refresh();
+    } else {
+      setError(res.error);
+    }
+  }
+
   return (
     <div className="group relative flex flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-[var(--shadow)] transition-transform hover:-translate-y-0.5">
       {/* Stretched link covers the card without nesting the menu button. */}
       <Link href={`/books/${book.id}`} aria-label={book.name} className="absolute inset-0 z-[1]" />
 
-      <div className="flex aspect-[3/2] items-center justify-center bg-accent-soft">
-        <span className="font-title text-5xl text-accent">
-          {book.name.charAt(0).toUpperCase()}
-        </span>
+      <div className="flex aspect-[3/2] items-center justify-center overflow-hidden bg-accent-soft">
+        {cover ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={cover} alt="" className="h-full w-full object-cover" />
+        ) : (
+          <span className="font-title text-5xl text-accent">
+            {book.name.charAt(0).toUpperCase()}
+          </span>
+        )}
       </div>
       <div className="flex flex-1 flex-col p-4">
         <h2 className="font-title text-xl leading-snug">{book.name}</h2>
@@ -91,6 +114,13 @@ export function BookCard({ book }: { book: BookCardData }) {
                 },
               },
               {
+                label: book.coverImage ? "Change photo" : "Add photo",
+                onClick: () => {
+                  setError(null);
+                  setCoverOpen(true);
+                },
+              },
+              {
                 label: "Delete book",
                 danger: true,
                 onClick: () => {
@@ -113,6 +143,16 @@ export function BookCard({ book }: { book: BookCardData }) {
         error={error}
         onConfirm={onRename}
         onCancel={() => setRenameOpen(false)}
+      />
+
+      <BookCoverDialog
+        open={coverOpen}
+        initialValue={book.coverImage ?? ""}
+        hasCustomCover={Boolean(book.coverImage)}
+        pending={pending}
+        error={error}
+        onConfirm={onSaveCover}
+        onCancel={() => setCoverOpen(false)}
       />
 
       <ConfirmDialog

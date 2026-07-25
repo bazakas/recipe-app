@@ -87,6 +87,7 @@ export function ShareDialog({
         {data && (
           <SharePanel
             bookId={bookId}
+            bookName={bookName}
             role={data.role}
             viewerId={data.viewerId}
             members={data.members}

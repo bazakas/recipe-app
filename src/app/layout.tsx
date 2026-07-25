@@ -4,7 +4,7 @@ import "./globals.css";
 import { Providers } from "@/components/Providers";
 
 export const metadata: Metadata = {
-  title: "Recipe Book",
+  title: "Recipe Box",
   description:
     "Save recipes from any link, scale them up or down, and convert to grams.",
 };

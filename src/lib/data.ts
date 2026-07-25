@@ -15,8 +15,17 @@ export async function getUserBooks() {
         select: {
           id: true,
           name: true,
+          coverImage: true,
           createdAt: true,
           _count: { select: { recipes: true, memberships: true } },
+          // First recipe photo in the book — used as the card cover when the
+          // owner hasn't set an explicit one.
+          recipes: {
+            where: { imageUrl: { not: null } },
+            select: { imageUrl: true },
+            orderBy: { createdAt: "asc" },
+            take: 1,
+          },
         },
       },
     },
@@ -27,6 +36,8 @@ export async function getUserBooks() {
     role: m.role as Role,
     recipeCount: m.book._count.recipes,
     memberCount: m.book._count.memberships,
+    coverImage: m.book.coverImage,
+    fallbackImage: m.book.recipes[0]?.imageUrl ?? null,
   }));
 }
 

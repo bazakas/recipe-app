@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   createShareLink,
@@ -13,6 +13,7 @@ type ShareLink = { id: string; token: string; role: string };
 
 export function SharePanel({
   bookId,
+  bookName,
   role,
   viewerId,
   members,
@@ -20,6 +21,7 @@ export function SharePanel({
   onChanged,
 }: {
   bookId: string;
+  bookName: string;
   role: string;
   viewerId: string;
   members: Member[];
@@ -32,13 +34,37 @@ export function SharePanel({
   const isOwner = role === "owner";
   const [creating, setCreating] = useState(false);
   const [copied, setCopied] = useState<string | null>(null);
-
-  const refresh = onChanged ?? (() => router.refresh());
+  // Native share sheet exists mainly on mobile / secure contexts. Detect on the
+  // client to avoid a hydration mismatch.
+  const [canNativeShare, setCanNativeShare] = useState(false);
+  useEffect(() => {
+    setCanNativeShare(typeof navigator !== "undefined" && !!navigator.share);
+  }, []);
 
   function linkUrl(token: string) {
     if (typeof window === "undefined") return "";
     return `${window.location.origin}/join/${token}`;
   }
+
+  const shareText = `Join my “${bookName}” recipe book on Recipe Box`;
+
+  function smsUrl(token: string) {
+    return `sms:?&body=${encodeURIComponent(`${shareText}: ${linkUrl(token)}`)}`;
+  }
+  function emailUrl(token: string) {
+    const subject = encodeURIComponent(`Join “${bookName}” on Recipe Box`);
+    const body = encodeURIComponent(`${shareText}:\n\n${linkUrl(token)}`);
+    return `mailto:?subject=${subject}&body=${body}`;
+  }
+  async function nativeShare(token: string) {
+    try {
+      await navigator.share({ title: shareText, text: shareText, url: linkUrl(token) });
+    } catch {
+      /* user cancelled or share failed — no-op */
+    }
+  }
+
+  const refresh = onChanged ?? (() => router.refresh());
 
   async function onCreate() {
     setCreating(true);
@@ -96,26 +122,50 @@ export function SharePanel({
             {shareLinks.map((l) => (
               <div
                 key={l.id}
-                className="flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2"
+                className="rounded-lg border border-line bg-surface px-3 py-2.5"
               >
-                <input
-                  readOnly
-                  value={linkUrl(l.token)}
-                  onFocus={(e) => e.currentTarget.select()}
-                  className="flex-1 bg-transparent text-sm text-muted outline-none"
-                />
-                <button
-                  onClick={() => copy(l.token)}
-                  className="rounded-md border border-line px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
-                >
-                  {copied === l.token ? "Copied!" : "Copy"}
-                </button>
-                <button
-                  onClick={() => onRevoke(l.id)}
-                  className="rounded-md px-2 py-1 text-xs text-hot hover:underline"
-                >
-                  Revoke
-                </button>
+                <div className="flex items-center gap-2">
+                  <input
+                    readOnly
+                    value={linkUrl(l.token)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    className="flex-1 bg-transparent text-sm text-muted outline-none"
+                  />
+                  <button
+                    onClick={() => onRevoke(l.id)}
+                    className="rounded-md px-2 py-1 text-xs text-hot hover:underline"
+                  >
+                    Revoke
+                  </button>
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => copy(l.token)}
+                    className="rounded-md border border-line px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
+                  >
+                    {copied === l.token ? "Copied!" : "Copy link"}
+                  </button>
+                  <a
+                    href={smsUrl(l.token)}
+                    className="rounded-md border border-line px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
+                  >
+                    Text
+                  </a>
+                  <a
+                    href={emailUrl(l.token)}
+                    className="rounded-md border border-line px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
+                  >
+                    Email
+                  </a>
+                  {canNativeShare && (
+                    <button
+                      onClick={() => nativeShare(l.token)}
+                      className="rounded-md border border-line px-2.5 py-1 text-xs font-medium hover:bg-surface-2"
+                    >
+                      Share…
+                    </button>
+                  )}
+                </div>
               </div>
             ))}
           </div>

@@ -30,9 +30,10 @@ model User {
 /// A recipe book / collection. Sharing happens at the book level.
 /// Ownership is expressed via a Membership with role = "owner".
 model Book {
-  id        String   @id @default(cuid())
-  name      String
-  createdAt DateTime @default(now())
+  id         String   @id @default(cuid())
+  name       String
+  coverImage String?
+  createdAt  DateTime @default(now())
 
   memberships Membership[]
   recipes     Recipe[]

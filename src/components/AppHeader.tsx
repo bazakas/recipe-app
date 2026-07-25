@@ -60,7 +60,7 @@ export function AppHeader({
     <header className="sticky top-0 z-40 border-b border-line bg-surface/90 backdrop-blur no-print">
       <div className="mx-auto flex h-14 max-w-5xl items-center gap-3 px-4">
         <Link href="/" className="font-title text-lg font-semibold shrink-0 hover:opacity-75">
-          Recipe&nbsp;Book
+          Recipe&nbsp;Box
         </Link>
 
         {/* Quick book switcher (only when viewing a book) */}

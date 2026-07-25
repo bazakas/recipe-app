@@ -48,6 +48,28 @@ export async function renameBook(bookId: string, name: string): Promise<ActionRe
   return { ok: true };
 }
 
+/** Set (or clear, with an empty string) the book's cover photo. */
+export async function setBookCover(
+  bookId: string,
+  imageUrl: string,
+): Promise<ActionResult> {
+  const userId = await requireUserId();
+  if (!canManage(await getBookRole(userId, bookId)))
+    return fail("Only the owner can change this book's photo.");
+
+  const clean = imageUrl.trim();
+  if (clean && !/^https?:\/\//i.test(clean))
+    return fail("Enter a full image link starting with http:// or https://");
+
+  await prisma.book.update({
+    where: { id: bookId },
+    data: { coverImage: clean || null },
+  });
+  revalidatePath("/");
+  revalidatePath(`/books/${bookId}`);
+  return { ok: true };
+}
+
 export async function deleteBook(bookId: string): Promise<ActionResult> {
   const userId = await requireUserId();
   if (!canManage(await getBookRole(userId, bookId)))

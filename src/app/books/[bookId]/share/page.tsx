@@ -31,6 +31,7 @@ export default async function SharePage({
         </p>
         <SharePanel
           bookId={bookId}
+          bookName={book.name}
           role={data.role}
           viewerId={data.viewerId}
           members={data.members.map((m) => ({
