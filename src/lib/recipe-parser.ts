@@ -313,7 +313,7 @@ export function humanizeDuration(iso: string | null): string | null {
 // ---- Microformat / microdata fallback (hRecipe, Jetpack Recipe) -----------
 
 function collapse(s: string): string {
-  return s.replace(/\s+/g, " ").trim();
+  return decodeEntities(s.replace(/\s+/g, " ").trim());
 }
 
 function ogImage($: cheerio.CheerioAPI): string | null {
@@ -453,17 +453,50 @@ function stripTags(s: string): string {
   return s.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ");
 }
 
+// Named HTML entities we may encounter in recipe text. Numeric entities
+// (&#8220;, &#x201C;) are decoded generically below, which covers curly quotes,
+// dashes, accented letters, and anything else without an exhaustive list.
+const NAMED_ENTITIES: Record<string, string> = {
+  quot: '"',
+  apos: "'",
+  lt: "<",
+  gt: ">",
+  nbsp: " ",
+  hellip: "…",
+  mdash: "—",
+  ndash: "–",
+  lsquo: "‘",
+  rsquo: "’",
+  ldquo: "“",
+  rdquo: "”",
+  deg: "°",
+  frac12: "½",
+  frac14: "¼",
+  frac34: "¾",
+  frac13: "⅓",
+  frac23: "⅔",
+};
+
+function codePointToStr(cp: number): string {
+  if (!Number.isFinite(cp) || cp <= 0 || cp > 0x10ffff) return "";
+  try {
+    return String.fromCodePoint(cp);
+  } catch {
+    return "";
+  }
+}
+
 function decodeEntities(s: string): string {
-  return s
-    .replace(/&amp;/g, "&")
-    .replace(/&#0?39;/g, "'")
-    .replace(/&#x27;/gi, "'")
-    .replace(/&quot;/g, '"')
-    .replace(/&#0?34;/g, '"')
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/&nbsp;/g, " ")
-    .replace(/&frac12;/g, "½")
-    .replace(/&frac14;/g, "¼")
-    .replace(/&frac34;/g, "¾");
+  if (!s.includes("&")) return s;
+  return (
+    s
+      // Decimal numeric: &#8220; -> “
+      .replace(/&#(\d+);/g, (_, n) => codePointToStr(parseInt(n, 10)))
+      // Hex numeric: &#x201C; -> “
+      .replace(/&#x([0-9a-fA-F]+);/g, (_, n) => codePointToStr(parseInt(n, 16)))
+      // Named entities (except &amp;, handled last)
+      .replace(/&([a-zA-Z][a-zA-Z0-9]*);/g, (m, name) => NAMED_ENTITIES[name] ?? m)
+      // Ampersand last so a double-encoded "&amp;#8220;" still resolves.
+      .replace(/&amp;/g, "&")
+  );
 }

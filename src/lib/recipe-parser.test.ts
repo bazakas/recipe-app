@@ -70,6 +70,40 @@ describe("extractRecipeFromHtml — JSON-LD", () => {
   });
 });
 
+// JSON-LD whose string values contain HTML entities (numeric + named). Sites
+// often double-encode these, so JSON.parse hands us the literal "&#8220;".
+const ENTITY_HTML = `
+<html><head>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "Recipe",
+  "name": "Cr&#232;me Br&#251;l&#233;e",
+  "recipeIngredient": ["1 cup hea&#118;y cream"],
+  "recipeInstructions": [
+    { "@type": "HowToStep", "text": "Bake until the custard is &#8220;set&#8221; &mdash; about 40 min." }
+  ]
+}
+</script>
+</head><body></body></html>
+`;
+
+describe("extractRecipeFromHtml — HTML entity decoding", () => {
+  const r = extractRecipeFromHtml(ENTITY_HTML, "https://example.com/brulee");
+
+  it("decodes curly quotes and dashes in instructions", () => {
+    expect(r.instructions).toEqual([
+      "Bake until the custard is “set” — about 40 min.",
+    ]);
+  });
+  it("decodes accented letters in the title", () => {
+    expect(r.title).toBe("Crème Brûlée");
+  });
+  it("decodes numeric entities inside ingredients", () => {
+    expect(r.ingredients).toEqual(["1 cup heavy cream"]);
+  });
+});
+
 // Mimics Smitten Kitchen / Jetpack Recipe markup: microdata, loose-text
 // directions with a trailing footnote <p>, and ingredient parentheticals.
 const MICROFORMAT_HTML = `
